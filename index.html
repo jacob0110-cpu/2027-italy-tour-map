@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>南義與馬爾他 16 天旅程(Google Maps 版)</title>
+<style>
+:root{--bg:#f4f1ea;--card:#fff;--tx:#222;--mut:#666;--ac:#c2410c;--ln:#ddd}
+@media (prefers-color-scheme:dark){:root{--bg:#1b1d20;--card:#26292d;--tx:#eee;--mut:#aaa;--ac:#fb923c;--ln:#3a3d42}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.6 "Noto Sans TC",system-ui,sans-serif}
+header{padding:14px 18px}h1{margin:0;font-size:20px}header p{margin:2px 0 0;color:var(--mut);font-size:13px}
+main{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:14px;padding:0 14px 20px}
+@media(max-width:860px){main{grid-template-columns:1fr}}
+.mapwrap{background:var(--card);border:1px solid var(--ln);border-radius:12px;overflow:hidden;position:sticky;top:8px;align-self:start}
+#map{height:68vh;min-height:360px;background:#cfe3ee}
+.ctl{display:flex;gap:8px;align-items:center;padding:10px;flex-wrap:wrap;border-top:1px solid var(--ln)}
+.ctl input[type=range]{flex:1;min-width:120px}
+.side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.card{background:var(--card);border:1px solid var(--ln);border-radius:12px;padding:14px}
+.card h2{margin:0 0 4px;font-size:17px}.day{color:var(--ac);font-size:13px;font-weight:600}
+.mut{color:var(--mut);font-size:13px}.row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+a{color:var(--ac)}
+button,select,input,textarea{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--ln);border-radius:8px;padding:5px 10px}
+button{cursor:pointer}button.p{background:var(--ac);color:#fff;border-color:var(--ac)}
+.list{max-height:240px;overflow:auto}
+.it{display:flex;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;align-items:baseline}
+.it:hover,.it.on{background:var(--bg)}.it b{min-width:58px;color:var(--ac);font-size:12px}
+label{display:block;font-size:12px;color:var(--mut);margin-top:6px}
+.f input,.f select,.f textarea{width:100%}.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+textarea{min-height:90px}
+#keybox{padding:24px;text-align:center}#keybox input{width:min(420px,90%);margin:8px 0}
+</style>
+</head>
+<body>
+<header><h1>🇮🇹 南義 × 🇲🇹 馬爾他 16 天旅程</h1><p>9/20 – 10/5 · Google Maps 動態路線 · 景點間有虛線與方向箭頭,播放時地圖會自動拉近、拉遠</p></header>
+<main>
+<section class="mapwrap">
+<div id="map"><div id="keybox">
+<h2>請輸入 Google Maps JavaScript API 金鑰</h2>
+<p class="mut">金鑰只會存在你這台瀏覽器的 localStorage,不會傳到其他地方。</p>
+<input id="key" placeholder="AIza..." autocomplete="off"><br><button class="p" id="keyok">載入地圖</button>
+</div></div>
+<div class="ctl"><button class="p" id="play">▶ 播放</button><button id="prev">◀</button><button id="next">▶</button>
+<input type="range" id="rng" min="0" max="0" value="0"><span class="mut" id="cnt"></span>
+<select id="spd"><option value="3500">慢</option><option value="2200" selected>中</option><option value="1200">快</option></select>
+<button id="chgkey" title="更換金鑰">🔑</button></div>
+</section>
+<section class="side">
+<div class="card" id="detail"></div>
+<div class="card"><b>行程列表</b><div class="list" id="list"></div>
+<div class="row"><button id="add">＋ 新增景點</button><button id="reset">還原預設</button></div></div>
+<div class="card f" id="edit" hidden></div>
+<div class="card"><b>備份 / 匯入</b><p class="mut" style="margin:2px 0">編輯內容自動存在此瀏覽器。換裝置請複製 JSON。</p>
+<textarea id="json" style="width:100%"></textarea>
+<div class="row"><button id="exp">匯出目前行程</button><button id="imp">套用貼上的 JSON</button></div></div>
+</section>
+</main>
+<script>
+const DEF=[
+{day:"Day 1 (9/20)",name:"台北 → 米蘭",lat:45.63,lon:8.72,mode:"plane",title:"長榮航空直飛米蘭 MXP",desc:"從台北桃園(TPE)搭長榮航空直飛米蘭馬爾彭薩機場。",hotel:"機上過夜"},
+{day:"Day 2 (9/21)",name:"巴里 Bari",lat:41.12,lon:16.87,mode:"plane",title:"轉機巴里,老城區散步",desc:"抵達米蘭後預留 3–4 小時轉國內線飛巴里(BRI)。逛老城區,品嚐貓耳朵麵。",hotel:"巴里"},
+{day:"Day 3 (9/22)",name:"波利尼亞諾 / 莫諾波利",lat:40.99,lon:17.22,mode:"car",title:"懸崖秘境與白色漁村",desc:"Polignano a Mare 峽灣海灘拍照;下午到 Monopoli 看亞得里亞海日落。",hotel:"巴里或莫諾波利"},
+{day:"Day 4 (9/23)",name:"阿爾貝羅貝洛",lat:40.79,lon:17.24,mode:"car",title:"蘑菇村世界遺產",desc:"漫步圓錐形石板屋 Trulli 小鎮。強烈建議入住蘑菇屋。",hotel:"阿爾貝羅貝洛(Trulli)"},
+{day:"Day 5 (9/24)",name:"馬泰拉 Matera",lat:40.67,lon:16.60,mode:"car",title:"Sassi 洞穴城",desc:"007 電影場景,夜景宛如千年古城,旅程亮點。",hotel:"馬泰拉(洞穴飯店)"},
+{day:"Day 6 (9/25)",name:"瓦萊塔 Valletta",lat:35.90,lon:14.51,mode:"plane",title:"飛往馬爾他",desc:"早上回巴里機場搭機飛馬爾他(MLA)。漫步舊薄荷街,參觀聖若望副主教座堂。",hotel:"瓦萊塔"},
+{day:"Day 7 (9/26)",name:"姆迪納 Mdina",lat:35.89,lon:14.40,mode:"car",title:"寧靜之城",desc:"中世紀古城。下午可搭船看藍洞(Blue Grotto)或到丁利懸崖。",hotel:"瓦萊塔"},
+{day:"Day 8 (9/27)",name:"拿坡里 Napoli",lat:40.85,lon:14.27,mode:"plane",title:"重返義大利西岸",desc:"馬爾他飛拿坡里(NAP),朝聖發明瑪格麗特披薩的百年老店。",hotel:"拿坡里或蘇連多"},
+{day:"Day 9 (9/28)",name:"龐貝 → 蘇連多",lat:40.75,lon:14.49,mode:"train",title:"龐貝古城",desc:"全日探索被維蘇威火山灰掩埋的古城,傍晚移動到蘇連多。",hotel:"蘇連多"},
+{day:"Day 10 (9/29)",name:"卡布里島 Capri",lat:40.55,lon:14.24,mode:"ship",title:"地中海明珠",desc:"清晨小船入藍洞(Grotta Azzurra),下午搭單人纜車上索拉羅山。",hotel:"蘇連多"},
+{day:"Day 11 (9/30)",name:"阿瑪菲海岸",lat:40.63,lon:14.49,mode:"car",title:"世界最美海岸線",desc:"搭巴士或包車遊波西塔諾(Positano)與阿瑪菲鎮大教堂。",hotel:"蘇連多或拿坡里"},
+{day:"Day 12 (10/1)",name:"拿坡里 → 米蘭",lat:45.486,lon:9.205,mode:"train",title:"義大利高鐵",desc:"早上採買、喝拿坡里咖啡,搭高鐵約 4.5 小時抵達米蘭中央車站。",hotel:"米蘭"},
+{day:"Day 13 (10/2)",name:"米蘭市區",lat:45.464,lon:9.19,mode:"car",title:"時尚之都",desc:"登米蘭大教堂、逛艾曼紐二世迴廊,吃 Luini 炸麵團與 Gelato。",hotel:"米蘭"},
+{day:"Day 14 (10/3)",name:"科木湖 Como",lat:45.81,lon:9.085,mode:"train",title:"科木湖或 Outlet",desc:"搭火車約 1 小時到科木湖;想購物可改去 Serravalle Designer Outlet。",hotel:"米蘭"},
+{day:"Day 15–16 (10/4–10/5)",name:"米蘭機場 → 台北",lat:45.63,lon:8.72,mode:"plane",title:"退稅、返台",desc:"上午在 MXP 辦退稅,搭長榮返台,10/5 安抵台灣。",hotel:"—"}
+];
+const ICON={plane:"✈️ 飛機",train:"🚆 火車",car:"🚌 巴士/汽車",ship:"⛴ 船"};
+const KEY="italy-malta-trip-v1",KK="gmaps-key";
+const DEFAULT_KEY="AIzaSyA9mTCpevUY7nKJ6yUv_pPN7_EH6bWO5Eo";
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function load(){try{const v=JSON.parse(localStorage.getItem(KEY));if(Array.isArray(v)&&v.length)return v}catch(e){}return JSON.parse(JSON.stringify(DEF))}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+let S=load(),cur=0,playing=false,tok=0,map=null,polys=[],plans=[],pins=[],dot=null,pick=false;
+const ll=s=>({lat:+s.lat,lng:+s.lon});
+
+/* ---- 載入 Google Maps ---- */
+function loadMaps(k){
+  window.gm_auth=()=>{$("map").innerHTML='<div id="keybox"><h2>金鑰驗證失敗</h2><p class="mut">請確認已啟用 Maps JavaScript API、帳單已設定,且 HTTP referrer 限制包含目前網址。</p><button class="p" onclick="resetKey()">重新輸入</button></div>'};
+  window.gm_auth_failure=window.gm_auth; window.gm_ready=initMap;
+  const s=document.createElement("script");
+  s.src="https://maps.googleapis.com/maps/api/js?key="+encodeURIComponent(k)+"&callback=gm_ready&loading=async&language=zh-TW";
+  s.onerror=()=>alert("無法載入 Google Maps,請檢查網路。");document.head.appendChild(s);
+  window.gm_authFailure=window.gm_auth;
+}
+function resetKey(){try{localStorage.setItem(KK,"")}catch(e){}location.reload()}
+$("keyok").onclick=()=>{const k=$("key").value.trim();if(!k)return;try{localStorage.setItem(KK,k)}catch(e){}$("map").innerHTML="";loadMaps(k)};
+$("chgkey").onclick=()=>{if(confirm("清除已儲存的金鑰並重新輸入?"))resetKey()};
+(()=>{let k=null;try{k=localStorage.getItem(KK)}catch(e){}if(k===null)k=DEFAULT_KEY;if(k){$("map").innerHTML="";loadMaps(k)}})();
+
+function initMap(){
+  map=new google.maps.Map($("map"),{center:{lat:41.5,lng:13.5},zoom:5,mapTypeControl:true,streetViewControl:false,fullscreenControl:true});
+  dot=new google.maps.Marker({map,zIndex:999,icon:{path:google.maps.SymbolPath.CIRCLE,scale:10,fillColor:"#c2410c",fillOpacity:1,strokeColor:"#fff",strokeWeight:3}});
+  map.addListener("click",e=>{if(pick&&!$("edit").hidden){$("e_lat").value=e.latLng.lat().toFixed(5);$("e_lon").value=e.latLng.lng().toFixed(5);pick=false;$("e_pick").textContent="📍 在地圖上點選座標"}});
+  build();
+}
+function build(){
+  stop();if(!map){detail();list();return}
+  polys.forEach(p=>p.setMap(null));plans.forEach(p=>p.setMap(null));pins.forEach(p=>p.setMap(null));polys=[];pins=[];
+  plans.forEach(p=>p.setMap(null));plans=[];
+  const dash={path:"M 0,-1 0,1",strokeOpacity:1,strokeColor:"#7c2d12",scale:2.5};
+  const arrow=off=>({icon:{path:google.maps.SymbolPath.FORWARD_CLOSED_ARROW,scale:4.5,fillColor:"#c2410c",fillOpacity:1,strokeColor:"#fff",strokeWeight:1.5},offset:off});
+  for(let i=1;i<S.length;i++){const a=ll(S[i-1]),b=ll(S[i]),dashed=S[i].mode==="plane"||S[i].mode==="ship";
+    if(a.lat===b.lat&&a.lng===b.lng){polys.push(new google.maps.Polyline({map,visible:false,path:[a,b]}));plans.push(new google.maps.Polyline({map,visible:false,path:[a,b]}));continue}
+    const far=Math.abs(a.lat-b.lat)+Math.abs(a.lng-b.lng)>3;
+    plans.push(new google.maps.Polyline({map,geodesic:dashed,path:[a,b],strokeOpacity:0,zIndex:1,icons:[{icon:dash,offset:"0",repeat:"12px"}].concat((far?["25%","50%","75%"]:["50%"]).map(arrow))}));
+    polys.push(new google.maps.Polyline({map,visible:false,geodesic:dashed,path:[a,b],strokeColor:"#c2410c",strokeOpacity:dashed?0:.9,strokeWeight:4,zIndex:2,
+      icons:dashed?[{icon:{path:"M 0,-1 0,1",strokeOpacity:1,strokeColor:"#c2410c",scale:4},offset:"0",repeat:"14px"}]:[]}))}
+  S.forEach((s,i)=>{const m=new google.maps.Marker({map,position:ll(s),title:s.name,label:{text:String(i+1),color:"#222",fontSize:"11px",fontWeight:"700"}});
+    m.addListener("click",()=>{stop();go(i,true)});pins.push(m)});
+  $("rng").max=S.length-1;if(cur>=S.length)cur=S.length-1;go(cur,false);
+}
+function paint(i){
+  cur=i;polys.forEach((p,j)=>{p.setVisible(j+1<=i);if(j+1<=i)p.setPath([ll(S[j]),ll(S[j+1])])});
+  pins.forEach((m,k)=>m.setIcon({path:google.maps.SymbolPath.CIRCLE,scale:k===i?13:11,fillColor:k===i?"#c2410c":"#fff",fillOpacity:1,strokeColor:"#c2410c",strokeWeight:3}));
+  pins.forEach((m,k)=>m.setLabel({text:String(k+1),color:k===i?"#fff":"#222",fontSize:"11px",fontWeight:"700"}));
+  if(dot)dot.setPosition(ll(S[i]));
+  $("rng").value=i;$("cnt").textContent=(i+1)+" / "+S.length;detail();list();
+}
+function go(i,fly){paint(i);if(map&&fly){map.panTo(ll(S[i]));smoothZoom(10)}else if(map&&!playing){map.setCenter(ll(S[i]))}}
+async function smoothZoom(t){const my=tok;let z=map.getZoom();while(z!==t&&my===tok){z+=z<t?1:-1;map.setZoom(z);await sleep(220)}}
+
+/* ---- 動態播放:拉遠看路線 → 沿途跟隨 → 抵達後拉近 ---- */
+async function play(){
+  if(!map){alert("請先輸入金鑰載入地圖");return}
+  playing=true;const my=++tok;$("play").textContent="⏸ 暫停";
+  if(cur>=S.length-1){paint(0);map.setCenter(ll(S[0]));map.setZoom(10);await sleep(800)}
+  while(playing&&my===tok&&cur<S.length-1){
+    const i=cur+1,a=S[cur],b=S[i];
+    if(+a.lat===+b.lat&&+a.lon===+b.lon){paint(i);await sleep(1300);continue}
+    const bd=new google.maps.LatLngBounds();bd.extend(ll(a));bd.extend(ll(b));
+    map.fitBounds(bd,{top:90,bottom:90,left:90,right:90});await sleep(1300);if(my!==tok)return;
+    const p=polys[i-1],A=ll(a),B=ll(b),dur=+$("spd").value;p.setVisible(true);
+    const t0=performance.now();
+    await new Promise(res=>{const f=now=>{if(my!==tok)return res();const k=Math.min(1,(now-t0)/dur),e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+      const pos={lat:A.lat+(B.lat-A.lat)*e,lng:A.lng+(B.lng-A.lng)*e};dot.setPosition(pos);p.setPath([A,pos]);
+      if(k<1)requestAnimationFrame(f);else res()};requestAnimationFrame(f)});
+    if(my!==tok)return;
+    p.setPath([A,B]);paint(i);map.panTo(B);await smoothZoom(11);await sleep(1500);
+  }
+  if(my===tok)stop();
+}
+function stop(){playing=false;tok++;$("play").textContent="▶ 播放"}
+$("play").onclick=()=>playing?stop():play();
+$("prev").onclick=()=>{stop();go(Math.max(0,cur-1),true)};$("next").onclick=()=>{stop();go(Math.min(S.length-1,cur+1),true)};
+$("rng").oninput=e=>{stop();go(+e.target.value,true)};
+
+/* ---- 介面與編輯 ---- */
+function detail(){const s=S[cur];$("detail").innerHTML=`<div class="day">${esc(s.day)}</div><h2>${esc(s.name)}</h2>
+<div><b>${esc(s.title)}</b></div><p style="margin:6px 0">${esc(s.desc)}</p>
+<div class="mut">交通:${ICON[s.mode]||esc(s.mode)}　🏨 住宿:${esc(s.hotel)}</div>
+<div class="row"><a href="https://www.google.com/maps/search/?api=1&query=${s.lat},${s.lon}" target="_blank" rel="noopener">📍 在 Google 地圖開啟</a>
+${cur>0?`<a href="https://www.google.com/maps/dir/?api=1&origin=${S[cur-1].lat},${S[cur-1].lon}&destination=${s.lat},${s.lon}" target="_blank" rel="noopener">🧭 從上一站導航</a>`:""}</div>
+<div class="row"><button id="ed">✏️ 編輯此站</button></div>`;$("ed").onclick=openEdit}
+function list(){$("list").innerHTML=S.map((s,i)=>`<div class="it ${i===cur?"on":""}" data-i="${i}"><b>${esc(s.day.replace(/\s*\(.*/,""))}</b><span>${esc(s.name)}</span></div>`).join("");
+$("list").querySelectorAll(".it").forEach(e=>e.onclick=()=>{stop();go(+e.dataset.i,true)})}
+function openEdit(){const s=S[cur],e=$("edit");e.hidden=false;
+e.innerHTML=`<b>編輯第 ${cur+1} 站</b>
+<label>日期標籤</label><input id="e_day" value="${esc(s.day)}">
+<label>地點名稱</label><input id="e_name" value="${esc(s.name)}">
+<div class="g2"><div><label>緯度</label><input id="e_lat" type="number" step="any" value="${s.lat}"></div><div><label>經度</label><input id="e_lon" type="number" step="any" value="${s.lon}"></div></div>
+<div class="row"><button id="e_pick">📍 在地圖上點選座標</button></div>
+<label>抵達交通</label><select id="e_mode">${Object.keys(ICON).map(k=>`<option value="${k}" ${k===s.mode?"selected":""}>${ICON[k]}</option>`).join("")}</select>
+<label>標題</label><input id="e_title" value="${esc(s.title)}">
+<label>說明</label><textarea id="e_desc">${esc(s.desc)}</textarea>
+<label>住宿</label><input id="e_hotel" value="${esc(s.hotel)}">
+<div class="row"><button class="p" id="e_ok">儲存</button><button id="e_up">↑ 上移</button><button id="e_dn">↓ 下移</button><button id="e_del">🗑 刪除</button><button id="e_x">關閉</button></div>`;
+$("e_pick").onclick=()=>{pick=!pick;$("e_pick").textContent=pick?"請點擊地圖…":"📍 在地圖上點選座標"};
+$("e_ok").onclick=()=>{Object.assign(S[cur],{day:$("e_day").value,name:$("e_name").value,lat:+$("e_lat").value,lon:+$("e_lon").value,mode:$("e_mode").value,title:$("e_title").value,desc:$("e_desc").value,hotel:$("e_hotel").value});save();build()};
+$("e_up").onclick=()=>mv(-1);$("e_dn").onclick=()=>mv(1);
+$("e_del").onclick=()=>{if(S.length>1&&confirm("確定刪除這一站?")){S.splice(cur,1);save();e.hidden=true;build()}};
+$("e_x").onclick=()=>{pick=false;e.hidden=true}}
+function mv(d){const j=cur+d;if(j<0||j>=S.length)return;[S[cur],S[j]]=[S[j],S[cur]];cur=j;save();build();openEdit()}
+$("add").onclick=()=>{const b=S[cur];S.splice(cur+1,0,{day:"Day ?",name:"新景點",lat:b.lat,lon:b.lon,mode:"car",title:"",desc:"",hotel:""});cur++;save();build();openEdit()};
+$("reset").onclick=()=>{if(confirm("還原為預設行程?")){S=JSON.parse(JSON.stringify(DEF));cur=0;save();$("edit").hidden=true;build()}};
+$("exp").onclick=()=>{$("json").value=JSON.stringify(S,null,1)};
+$("imp").onclick=()=>{try{const v=JSON.parse($("json").value);if(!Array.isArray(v)||!v.length)throw 0;S=v;cur=0;save();build()}catch(e){alert("JSON 格式不正確")}};
+detail();list();
+</script>
+</body>
+</html>
