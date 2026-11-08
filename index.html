@@ -43,6 +43,7 @@ table{width:100%;border-collapse:collapse}td,th{padding:4px 6px;border-bottom:1p
 #pa h1{font-size:22px;margin:0 0 4px}#pa h2{font-size:15px;border-bottom:2px solid #0f766e;margin:16px 0 6px;padding-bottom:2px}#pa h3{font-size:13px;margin:0 0 2px}#pa p{margin:2px 0}
 #pa table{width:100%;border-collapse:collapse}#pa td,#pa th{border:1px solid #aaa;padding:3px 5px;font-size:11px;text-align:left;vertical-align:top}#pa th{background:#eee}#pa td.r{text-align:right}
 .ps{break-inside:avoid;margin-bottom:10px;padding-bottom:6px;border-bottom:1px dotted #999}#pa ul{margin:2px 0 2px 16px;padding:0}}
+#cap{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);z-index:1200;max-width:92%;background:rgba(15,23,42,.88);color:#fff;border-radius:20px;padding:6px 14px;font-size:13px;pointer-events:none;text-align:center}
 .over{color:var(--warn);font-weight:700}.mut{color:var(--mut);font-size:12px}
 </style>
 </head>
@@ -64,7 +65,7 @@ table{width:100%;border-collapse:collapse}td,th{padding:4px 6px;border-bottom:1p
 <div id="bud" hidden></div>
 </section>
 <section class="mapwrap">
-<div id="msg" hidden></div><div id="map"></div>
+<div id="msg" hidden></div><div style="position:relative"><div id="map"></div><div id="cap" hidden></div></div>
 <div class="bar"><button class="p" id="play">▶ 播放路線</button>
 <select id="spd"><option value="4000">慢</option><option value="2500" selected>中</option><option value="1300">快</option></select>
 <label><input type="checkbox" id="road"> 巴士/租車用道路路徑</label>
@@ -167,7 +168,7 @@ const GM={
  pin(p,i,on,title,cb){const k=new google.maps.Marker({map:this.m,position:gg(p),title,zIndex:50,icon:this.ic(on?13:11,on?"#0f766e":"#fff","#0f766e",3),label:{text:String(i+1),color:on?"#fff":"#222",fontSize:"11px",fontWeight:"700"}});k.addListener("click",cb);this.o.push(k)},
  dot(p,e){if(!this.d)this.d=new google.maps.Marker({map:this.m,position:gg(p||[42,13]),zIndex:1000,clickable:false,icon:this.ic(18,"#fff","#0f766e",3),label:{text:e||"📍",fontSize:"20px"}});if(p)this.d.setPosition(gg(p));if(e)this.d.setLabel({text:e,fontSize:"20px"})},
  dotOff(){if(this.d){this.d.setMap(null);this.d=null}},
- async fly(p,z){this.m.panTo(gg(p));const t=++this.zt;let c=this.m.getZoom();while(c!==z&&t===this.zt&&this.m){c+=c<z?1:-1;this.m.setZoom(c);await sleep(200)}},
+ async fly(p,z){this.m.panTo(gg(p));const t=++this.zt;let c=Math.round(this.m.getZoom());while(c!==z&&t===this.zt&&this.m){c+=c<z?1:-1;this.m.setZoom(c);await sleep(200)}},
  fit(ps,mz){this.zt++;const bd=new google.maps.LatLngBounds();ps.forEach(p=>bd.extend(gg(p)));this.m.fitBounds(bd,{top:80,bottom:80,left:80,right:80});
   google.maps.event.addListenerOnce(this.m,"idle",()=>{if(this.m&&this.m.getZoom()>mz)this.m.setZoom(mz)})},
  destroy(){this.clear();this.dotOff();google.maps.event.clearInstanceListeners(this.m);this.m=null;$("map").innerHTML=""}
@@ -192,16 +193,21 @@ async function road(i){const k=rk(i);if(roads[k]!==undefined)return;roads[k]=nul
 function focus(i){act=i;const d=$("list").querySelector(`details[data-i="${i}"]`);if(d){d.open=true;d.scrollIntoView({behavior:"smooth",block:"nearest"})}drawMap(false);map.flyTo([S()[i].lat,S()[i].lon],10,{duration:1.2})}
 
 /* ---------- 播放 ---------- */
-function stop(){playing=false;tok++;$("play").textContent="▶ 播放路線";if(E)E.dotOff()}
-async function play(){if(playing){stop();return}if(!E)return;playing=true;const my=++tok;$("play").textContent="⏸ 停止";
-  act=0;drawMap(false);E.dot([S()[0].lat,S()[0].lon],"📍");E.fly([S()[0].lat,S()[0].lon],9);await sleep(1800);
-  for(let i=1;i<S().length&&my===tok;i++){const a=S()[i-1],b=S()[i],m=MODES[b.mode],p=pts(i);
+function cap(x){const e=$("cap");e.textContent=x||"";e.hidden=!x}
+const capOf=i=>{const s=S()[i];return`第 ${i+1}/${S().length} 站 · ${fmtD(s.date)} · ${i?MODES[s.mode][0]:"🏁"} ${s.name}`};
+function syncList(i){$("list").querySelectorAll("details").forEach(d=>{d.open=+d.dataset.i===i});const d=$("list").querySelector(`details[data-i="${i}"]`);if(d)d.scrollIntoView({behavior:"smooth",block:"nearest"})}
+function stop(){playing=false;tok++;const L=S().length;$("play").textContent=act>=L-1&&act>0?"▶ 重新播放":act>0?"▶ 繼續播放":"▶ 播放路線";if(E)E.dotOff()}
+async function play(){if(playing){stop();return}if(!E)return;playing=true;const my=++tok;$("play").textContent="⏸ 暫停";
+  if(act>=S().length-1)act=0;const s0=S()[act];
+  drawMap(false);syncList(act);cap(capOf(act));E.dot([s0.lat,s0.lon],"📍");E.fly([s0.lat,s0.lon],9);await sleep(1800);
+  for(let i=act+1;i<S().length&&my===tok;i++){const a=S()[i-1],b=S()[i],m=MODES[b.mode],p=pts(i);
+    cap(`${m[0]} ${a.name} → ${b.name}${b.tTime?" · "+b.tTime:""}`);
     E.fit([[a.lat,a.lon],[b.lat,b.lon]],12);await sleep(1800);if(my!==tok)return;
-    E.dot(null,m[0]);const dur=+$("spd").value,t0=performance.now(),n=p.length-1;
+    E.dot(null,m[0]);const dur=+$("spd").value*Math.min(2,Math.max(.5,Math.sqrt(hv(a,b)/300))),t0=performance.now(),n=p.length-1;
     await new Promise(res=>{const f=now=>{if(my!==tok)return res();const k=Math.min(1,(now-t0)/dur),x=k*n,j=Math.min(n-1,Math.floor(x)),r=x-j;
       E.dot([p[j][0]+(p[j+1][0]-p[j][0])*r,p[j][1]+(p[j+1][1]-p[j][1])*r]);if(k<1)requestAnimationFrame(f);else res()};requestAnimationFrame(f)});
-    if(my!==tok)return;act=i;drawMap(false);E.fly([b.lat,b.lon],10);await sleep(1800)}
-  if(my===tok)stop()}
+    if(my!==tok)return;act=i;drawMap(false);syncList(i);cap(capOf(i));E.dot([b.lat,b.lon],"📍");E.fly([b.lat,b.lon],10);await sleep(2200)}
+  if(my===tok){cap("✅ 行程播放完畢");stop();setTimeout(()=>{if(!playing)cap("")},3500)}}
 
 /* ---------- 列印 ---------- */
 const fmtD=d=>d?`${+d.slice(5,7)}/${+d.slice(8)} (${"日一二三四五六"[new Date(dms(d)).getUTCDay()]})`:"";
