@@ -38,6 +38,11 @@ summary .nm{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-
 table{width:100%;border-collapse:collapse}td,th{padding:4px 6px;border-bottom:1px solid var(--ln);text-align:left}td.r,th.r{text-align:right}
 .bg{height:8px;border-radius:4px;background:var(--ln);overflow:hidden}.bg i{display:block;height:100%}
 .det{grid-column:1/-1;background:var(--bg);border-radius:8px;padding:6px 10px}.det ul{margin:0;padding-left:18px}.det:empty{display:none}
+#pa{display:none}
+@media print{body>*:not(#pa){display:none!important}body{background:#fff}#pa{display:block;color:#000;font-size:12px}
+#pa h1{font-size:22px;margin:0 0 4px}#pa h2{font-size:15px;border-bottom:2px solid #0f766e;margin:16px 0 6px;padding-bottom:2px}#pa h3{font-size:13px;margin:0 0 2px}#pa p{margin:2px 0}
+#pa table{width:100%;border-collapse:collapse}#pa td,#pa th{border:1px solid #aaa;padding:3px 5px;font-size:11px;text-align:left;vertical-align:top}#pa th{background:#eee}#pa td.r{text-align:right}
+.ps{break-inside:avoid;margin-bottom:10px;padding-bottom:6px;border-bottom:1px dotted #999}#pa ul{margin:2px 0 2px 16px;padding:0}}
 .over{color:var(--warn);font-weight:700}.mut{color:var(--mut);font-size:12px}
 </style>
 </head>
@@ -49,7 +54,7 @@ table{width:100%;border-collapse:collapse}td,th{padding:4px 6px;border-bottom:1p
 <label>幣別<input id="cur" data-h="cur" style="width:64px"></label>
 <label>匯率(1 外幣=台幣)<input type="number" step="any" id="rate" data-h="rate" style="width:90px"></label>
 <label>預算上限<input type="number" min="0" id="cap" data-h="cap" style="width:100px"></label>
-<button id="exp">匯出</button><button id="impb">匯入</button><button id="reset">重設</button><input type="file" id="imp" accept=".json" hidden>
+<button id="prt" class="p">🖨 列印行程</button><button id="exp">匯出</button><button id="impb">匯入</button><button id="reset">重設</button><input type="file" id="imp" accept=".json" hidden>
 <span class="chip" id="tot"></span>
 </header>
 <main>
@@ -66,6 +71,7 @@ table{width:100%;border-collapse:collapse}td,th{padding:4px 6px;border-bottom:1p
 <select id="base"><option value="osm">OpenStreetMap</option><option value="carto">CARTO 淡色</option><option value="google">Google 地圖</option></select><button id="gk" title="Google 金鑰">🔑</button></div>
 </section>
 </main>
+<div id="pa"></div>
 <script>
 const KEY="trip-planner-v2",$=id=>document.getElementById(id),sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -196,6 +202,19 @@ async function play(){if(playing){stop();return}if(!E)return;playing=true;const 
       E.dot([p[j][0]+(p[j+1][0]-p[j][0])*r,p[j][1]+(p[j+1][1]-p[j][1])*r]);if(k<1)requestAnimationFrame(f);else res()};requestAnimationFrame(f)});
     if(my!==tok)return;act=i;drawMap(false);E.fly([b.lat,b.lon],10);await sleep(1800)}
   if(my===tok)stop()}
+
+/* ---------- 列印 ---------- */
+const fmtD=d=>d?`${+d.slice(5,7)}/${+d.slice(8)} (${"日一二三四五六"[new Date(dms(d)).getUTCDay()]})`:"";
+function buildPrint(){const {c,per,total}=calc(),N=num(T.n)||1,cu=esc(T.cur),ds=S().map(s=>s.date).filter(Boolean).sort();
+  const rows=[["tr","交通"],["hot","住宿"],["act","門票/活動"],["food","餐飲"],["oth","其他"]];
+  $("pa").innerHTML=`<h1>${esc(T.title)}</h1><p>${ds.length?fmtD(ds[0])+" ~ "+fmtD(ds[ds.length-1])+",共 "+span()+" 天 · ":""}${N} 人 · ${S().length} 站</p>
+<h2>行程總覽</h2><table><tr><th>日期</th><th>地點</th><th>抵達交通</th><th>住宿</th></tr>${S().map(s=>`<tr><td>${fmtD(s.date)}</td><td>${esc(s.name)}</td><td>${MODES[s.mode][0]} ${MODES[s.mode][1]}${s.tTime?" · "+esc(s.tTime):""}</td><td>${esc(s.hotel)}${num(s.nights)?"("+s.nights+" 晚)":""}</td></tr>`).join("")}</table>
+<h2>每站行程細節</h2>${S().map((s,i)=>{const m=MODES[s.mode];return`<div class="ps"><h3>${i+1}. ${fmtD(s.date)} ${esc(s.name)}</h3>
+<p>${i?m[0]+" 交通:"+m[1]+(s.tTime?" · "+esc(s.tTime):""):"🏁 起點"+(s.tTime?" · "+esc(s.tTime):"")}${num(s.tCost)?" · 每人 "+cu+" "+fmt(s.tCost):""}</p>
+${s.hotel?`<p>🏨 住宿:${esc(s.hotel)}${num(s.nights)?" × "+s.nights+" 晚":""}${num(s.hCost)?" · 每晚 "+cu+" "+fmt(s.hCost):""}</p>`:""}${detHtml(s)}${s.note?`<p>備註:${esc(s.note)}</p>`:""}${per[i]?`<p>小計:${cu} ${fmt(per[i])}</p>`:""}</div>`}).join("")}
+${total?`<h2>預算估算</h2><table>${rows.map(r=>`<tr><td>${r[1]}</td><td class="r">${cu} ${fmt(c[r[0]])}</td></tr>`).join("")}<tr><td><b>合計</b></td><td class="r"><b>${cu} ${fmt(total)}</b></td></tr><tr><td>每人</td><td class="r">${cu} ${fmt(total/N)}</td></tr><tr><td>約合台幣</td><td class="r">NT$ ${fmt(total*num(T.rate))}</td></tr></table>`:""}`}
+$("prt").onclick=()=>{buildPrint();window.print()};
+window.addEventListener("beforeprint",buildPrint);
 
 /* ---------- 事件 ---------- */
 let after=0;
